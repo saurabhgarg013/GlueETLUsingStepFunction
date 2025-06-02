@@ -1,0 +1,179 @@
+{
+  "Comment": "ETL Pipeline: Crawler (raw-data-fetch) -> Glue Job (name-exception-script) -> Crawler (transform-crawler)",
+  "StartAt": "StartCrawler",
+  "States": {
+    "StartCrawler": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+      "Parameters": {
+        "Name": "raw-data-fetch"
+      },
+      "ResultPath": "$.StartCrawlerOutput",
+      "Next": "GetCrawler"
+    },
+    "GetCrawler": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:glue:getCrawler",
+      "Parameters": {
+        "Name": "raw-data-fetch"
+      },
+      "ResultPath": "$.GetCrawlerOutput",
+      "Next": "CheckCrawlerStatus"
+    },
+    "CheckCrawlerStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.GetCrawlerOutput.Crawler.State",
+          "StringEquals": "RUNNING",
+          "Next": "WaitCrawler"
+        },
+        {
+          "Variable": "$.GetCrawlerOutput.Crawler.LastCrawl.Status",
+          "StringEquals": "SUCCEEDED",
+          "Next": "StartJobRun"
+        }
+      ],
+      "Default": "FailCrawler"
+    },
+    "WaitCrawler": {
+      "Type": "Wait",
+      "Seconds": 5,
+      "Next": "GetCrawler"
+    },
+    "FailCrawler": {
+      "Type": "Fail",
+      "Error": "CrawlerFailed",
+      "Cause": "Crawler raw-data-fetch failed"
+    },
+    "StartJobRun": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun",
+      "Parameters": {
+        "JobName": "name-exception-script"
+      },
+      "ResultPath": "$.StartJobRunOutput",
+      "Next": "CheckJobRunId"
+    },
+    "CheckJobRunId": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.StartJobRunOutput.JobRunId",
+          "IsPresent": true,
+          "Next": "PassJobRunId"
+        },
+        {
+          "Variable": "$.GetJobRunOutput.JobRun.Id",
+          "IsPresent": true,
+          "Next": "PassJobRunIdNested"
+        }
+      ],
+      "Default": "FailNoJobRunId"
+    },
+    "PassJobRunId": {
+      "Type": "Pass",
+      "Parameters": {
+        "RunId.$": "$.StartJobRunOutput.JobRunId"
+      },
+      "ResultPath": "$.Normalized",
+      "Next": "GetJobRun"
+    },
+    "PassJobRunIdNested": {
+      "Type": "Pass",
+      "Parameters": {
+        "RunId.$": "$.GetJobRunOutput.JobRun.Id"
+      },
+      "ResultPath": "$.Normalized",
+      "Next": "GetJobRun"
+    },
+    "FailNoJobRunId": {
+      "Type": "Fail",
+      "Error": "NoJobRunIdFound",
+      "Cause": "Neither JobRunId nor JobRun.Id found in input"
+    },
+    "GetJobRun": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:glue:getJobRun",
+      "Parameters": {
+        "JobName": "name-exception-script",
+        "RunId.$": "$.Normalized.RunId"
+      },
+      "ResultPath": "$.GetJobRunOutput",
+      "Next": "CheckJobStatus"
+    },
+    "CheckJobStatus": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.GetJobRunOutput.JobRun.JobRunState",
+          "StringEquals": "SUCCEEDED",
+          "Next": "StartCrawler2"
+        },
+        {
+          "Variable": "$.GetJobRunOutput.JobRun.JobRunState",
+          "StringEquals": "RUNNING",
+          "Next": "WaitJob"
+        }
+      ],
+      "Default": "FailJob"
+    },
+    "WaitJob": {
+      "Type": "Wait",
+      "Seconds": 5,
+      "Next": "CheckJobRunId"
+    },
+    "FailJob": {
+      "Type": "Fail",
+      "Error": "JobFailed",
+      "Cause": "Glue job name-exception-script failed"
+    },
+    "StartCrawler2": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+      "Parameters": {
+        "Name": "transform-crawler"
+      },
+      "ResultPath": "$.StartCrawler2Output",
+      "Next": "GetCrawler2"
+    },
+    "GetCrawler2": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:glue:getCrawler",
+      "Parameters": {
+        "Name": "transform-crawler"
+      },
+      "ResultPath": "$.GetCrawler2Output",
+      "Next": "CheckCrawler2Status"
+    },
+    "CheckCrawler2Status": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.GetCrawler2Output.Crawler.State",
+          "StringEquals": "RUNNING",
+          "Next": "WaitCrawler2"
+        },
+        {
+          "Variable": "$.GetCrawler2Output.Crawler.LastCrawl.Status",
+          "StringEquals": "SUCCEEDED",
+          "Next": "Success"
+        }
+      ],
+      "Default": "FailCrawler2"
+    },
+    "WaitCrawler2": {
+      "Type": "Wait",
+      "Seconds": 5,
+      "Next": "GetCrawler2"
+    },
+    "FailCrawler2": {
+      "Type": "Fail",
+      "Error": "Crawler2Failed",
+      "Cause": "Crawler transform-crawler failed"
+    },
+    "Success": {
+      "Type": "Succeed"
+    }
+  }
+}
