@@ -1,0 +1,7 @@
+emp_id,emp_name,dob,email
+1,John Doe,12-05-1990,john.doe@example.com
+2,,10-09-1985,jane.doe@example.com
+3,An@ Smith,1992-13-01,an@smith@example.com
+4,Emma Watson,2002-10-05,emma.wat@example.com
+5,Mike123,15-07-1993,mike123@example.com
+6,Lily,2015-10-05,emma.wat@example.com

@@ -1,0 +1,5 @@
+emp_id,emp_name,dob,email,salary
+7,sam,1990-05-11,sam@example.com,1000
+8,alan,1992-05-13,alan@example.com,2000
+9,edward,2012-08-02,edward@example.com,8000
+10,jack,2010-08-02,jack@example.com,7000
